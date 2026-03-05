@@ -224,8 +224,8 @@ class RFFC5071:
         GPIO.output(self.enx_pin, GPIO.LOW)
         time.sleep(0.00001)  # ENX setup time (10µs)
         
-        # Clock out 8 bits (X + R/W + 6 addr bits), MSB first
-        for i in range(23, 15, -1):
+        # Clock out 9 bits (X + R/W + 7 addr bits), MSB first
+        for i in range(23, 14, -1):  # Fixed: 23→15 inclusive (9 bits)
             bit = (word24_send >> i) & 1
             
             GPIO.output(self.sclk_pin, GPIO.LOW)
