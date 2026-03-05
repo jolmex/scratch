@@ -241,9 +241,13 @@ class RFFC5071:
         GPIO.output(self.sclk_pin, GPIO.LOW)
         time.sleep(0.000005)
         
-        # Switch SDATA to input for reading
+        # Set SDATA low before releasing (reduces conflict)
+        GPIO.output(self.sdata_pin, GPIO.LOW)
+        time.sleep(0.000002)
+        
+        # Switch SDATA to input for reading (release bus to device)
         GPIO.setup(self.sdata_pin, GPIO.IN)
-        time.sleep(0.00001)  # Allow pin direction change to settle (10µs)
+        time.sleep(0.00002)  # Increased turnaround time (20µs)
         
         # Clock in 16 bits of data
         data = 0
@@ -263,13 +267,14 @@ class RFFC5071:
         GPIO.output(self.sclk_pin, GPIO.LOW)
         time.sleep(0.000005)
         
-        # Switch SDATA back to output
-        GPIO.setup(self.sdata_pin, GPIO.OUT)
-        time.sleep(0.000005)  # Allow pin direction change to settle
-        
-        # ENX high to complete
+        # ENX high FIRST (end transaction, device releases bus)
         GPIO.output(self.enx_pin, GPIO.HIGH)
-        time.sleep(0.00001)  # Hold time (10µs)
+        time.sleep(0.00002)  # Wait for device to release SDATA (20µs)
+        
+        # NOW switch SDATA back to output and set to idle LOW
+        GPIO.setup(self.sdata_pin, GPIO.OUT)
+        GPIO.output(self.sdata_pin, GPIO.LOW)
+        time.sleep(0.000005)
         
         return data
     
