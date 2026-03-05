@@ -160,27 +160,31 @@ class RFFC5071:
         """
         # ENX low to start transaction
         GPIO.output(self.enx_pin, GPIO.LOW)
-        time.sleep(0.000001)  # Small setup time
+        time.sleep(0.00001)  # ENX setup time (10µs)
         
         # Clock out 24 bits, MSB first
         for i in range(23, -1, -1):
             bit = (word24 >> i) & 1
             
-            # Set data bit
-            GPIO.output(self.sdata_pin, GPIO.HIGH if bit else GPIO.LOW)
-            time.sleep(0.000001)  # Data setup time
-            
-            # Clock high (sample on rising edge)
-            GPIO.output(self.sclk_pin, GPIO.HIGH)
-            time.sleep(0.000001)  # Clock high time
-            
-            # Clock low
+            # Ensure clock is low before setting data
             GPIO.output(self.sclk_pin, GPIO.LOW)
-            time.sleep(0.000001)  # Clock low time
+            time.sleep(0.000005)  # Clock low time (5µs)
+            
+            # Set data bit and let it settle
+            GPIO.output(self.sdata_pin, GPIO.HIGH if bit else GPIO.LOW)
+            time.sleep(0.000005)  # Data setup time (5µs) - critical for stability
+            
+            # Clock high (device samples on rising edge)
+            GPIO.output(self.sclk_pin, GPIO.HIGH)
+            time.sleep(0.000005)  # Clock high time (5µs)
+        
+        # Final clock low
+        GPIO.output(self.sclk_pin, GPIO.LOW)
+        time.sleep(0.000005)
         
         # ENX high to latch
         GPIO.output(self.enx_pin, GPIO.HIGH)
-        time.sleep(0.000001)  # Hold time
+        time.sleep(0.00001)  # Hold time (10µs)
     
     def write_register(self, addr, value):
         """
@@ -218,38 +222,54 @@ class RFFC5071:
         """
         # ENX low to start transaction
         GPIO.output(self.enx_pin, GPIO.LOW)
-        time.sleep(0.000001)
+        time.sleep(0.00001)  # ENX setup time (10µs)
         
         # Clock out 8 bits (X + R/W + 6 addr bits), MSB first
         for i in range(23, 15, -1):
             bit = (word24_send >> i) & 1
-            GPIO.output(self.sdata_pin, GPIO.HIGH if bit else GPIO.LOW)
-            time.sleep(0.000001)
-            GPIO.output(self.sclk_pin, GPIO.HIGH)
-            time.sleep(0.000001)
+            
             GPIO.output(self.sclk_pin, GPIO.LOW)
-            time.sleep(0.000001)
+            time.sleep(0.000005)  # Clock low time
+            
+            GPIO.output(self.sdata_pin, GPIO.HIGH if bit else GPIO.LOW)
+            time.sleep(0.000005)  # Data setup time
+            
+            GPIO.output(self.sclk_pin, GPIO.HIGH)
+            time.sleep(0.000005)  # Clock high time
+        
+        # Final clock low before switching direction
+        GPIO.output(self.sclk_pin, GPIO.LOW)
+        time.sleep(0.000005)
         
         # Switch SDATA to input for reading
         GPIO.setup(self.sdata_pin, GPIO.IN)
-        time.sleep(0.000001)
+        time.sleep(0.00001)  # Allow pin direction change to settle (10µs)
         
         # Clock in 16 bits of data
         data = 0
         for i in range(15, -1, -1):
+            GPIO.output(self.sclk_pin, GPIO.LOW)
+            time.sleep(0.000005)  # Clock low time
+            
             GPIO.output(self.sclk_pin, GPIO.HIGH)
-            time.sleep(0.000001)
+            time.sleep(0.000003)  # Wait before sampling (3µs)
+            
             bit = GPIO.input(self.sdata_pin)
             data |= (bit << i)
-            GPIO.output(self.sclk_pin, GPIO.LOW)
-            time.sleep(0.000001)
+            
+            time.sleep(0.000002)  # Clock high hold time (2µs)
+        
+        # Final clock low
+        GPIO.output(self.sclk_pin, GPIO.LOW)
+        time.sleep(0.000005)
         
         # Switch SDATA back to output
         GPIO.setup(self.sdata_pin, GPIO.OUT)
+        time.sleep(0.000005)  # Allow pin direction change to settle
         
         # ENX high to complete
         GPIO.output(self.enx_pin, GPIO.HIGH)
-        time.sleep(0.000001)
+        time.sleep(0.00001)  # Hold time (10µs)
         
         return data
     
